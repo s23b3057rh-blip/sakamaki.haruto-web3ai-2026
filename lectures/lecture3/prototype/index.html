@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpillFree Tray & Bowl - 配膳シミュレータ</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="glow-bg"></div>
+    <div class="container">
+        <header>
+            <div class="badge">web3・AI概論 第3回宿題プロトタイプ</div>
+            <h1>SpillFree Tray & Bowl</h1>
+            <p class="subtitle">「お盆に乗せた味噌汁絶対こぼしちゃう」バグを解決する新世代の配膳ソリューション</p>
+        </header>
+
+        <main class="dashboard">
+            <!-- 左カラム：設定とコントロール -->
+            <section class="control-panel glass">
+                <h2>シミュレータ設定</h2>
+                
+                <div class="mode-selector">
+                    <label class="mode-card" for="mode-normal">
+                        <input type="radio" id="mode-normal" name="tray-mode" value="normal" checked>
+                        <div class="mode-content">
+                            <span class="icon">🗑️</span>
+                            <div class="mode-text">
+                                <h3>従来のお盆</h3>
+                                <p>滑りやすく、少しの揺れで味噌汁が波立ち、すぐにこぼれます。</p>
+                            </div>
+                        </div>
+                    </label>
+
+                    <label class="mode-card premium" for="mode-spillfree">
+                        <input type="radio" id="mode-spillfree" name="tray-mode" value="spillfree">
+                        <div class="mode-content">
+                            <span class="icon">✨</span>
+                            <div class="mode-text">
+                                <h3>SpillFree システム</h3>
+                                <p>ノンスリップ、重心スタビライザー、波打ち抑制お椀で絶対こぼしません。</p>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+
+                <div class="stats-card">
+                    <h3>ステータス監視</h3>
+                    <div class="stat-row">
+                        <span>お盆の濡れ度 (Pains):</span>
+                        <span id="stat-wetness" class="stat-val pain">0%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>配膳の快適度 (Gains):</span>
+                        <span id="stat-comfort" class="stat-val gain">100%</span>
+                    </div>
+                    <div class="stat-row">
+                        <span>こぼした回数:</span>
+                        <span id="stat-spills" class="stat-val">0 回</span>
+                    </div>
+                </div>
+
+                <button id="btn-reset" class="btn">お盆を拭いてリセット</button>
+            </section>
+
+            <!-- 右カラム：物理シミュレータ本体 -->
+            <section class="simulator-area glass">
+                <div class="sim-header">
+                    <h2>配膳エリア</h2>
+                    <p class="instruction">マウスまたはドラッグでお盆を左右に揺らしてみてください</p>
+                </div>
+
+                <!-- ドラッグ・操作可能なキャンバスコンテナ -->
+                <div class="canvas-container" id="tray-handle">
+                    <canvas id="sim-canvas"></canvas>
+                    <div class="tray-guide-text">← ここをドラッグして左右に揺らす →</div>
+                </div>
+
+                <!-- リアルタイムフィードバック -->
+                <div class="feedback-panel">
+                    <div id="feedback-pain" class="feedback-card pain-alert">
+                        <h4>⚠️ 発生している Pains:</h4>
+                        <ul id="pain-list">
+                            <li>なし</li>
+                        </ul>
+                    </div>
+                    <div id="feedback-gain" class="feedback-card gain-alert">
+                        <h4>🎉 創出されている Gains:</h4>
+                        <ul id="gain-list">
+                            <li>綺麗なまま食事に入れる</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>&copy; 2026 sakamaki.haruto. Created with Antigravity.</p>
+        </footer>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
