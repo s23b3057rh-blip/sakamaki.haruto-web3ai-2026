@@ -3,104 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SpillFree Tray & Bowl - 配膳シミュレータ</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Spill-Free Tray System (SFTS-01) - 構造解説プロトタイプ</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="glow-bg"></div>
-    <div class="container">
-        <header>
-            <div class="badge">web3・AI概論 第3回宿題プロトタイプ</div>
-            <h1>SpillFree Tray & Bowl</h1>
-            <p class="subtitle">「お盆に乗せた味噌汁絶対こぼしちゃう」バグを解決する新世代の配膳ソリューション</p>
+    <div class="app-container">
+        <!-- ヘッダー -->
+        <header class="app-header">
+            <div class="logo-area">
+                <span class="badge">PROTOTYPE V1</span>
+                <h1>SPILL-FREE TRAY SYSTEM <span>SFTS-01</span></h1>
+            </div>
+            <p class="subtitle">味噌汁を「絶対こぼさない」ための4大テクノロジー解説</p>
         </header>
 
-        <main class="dashboard">
-            <!-- 左カラム：設定とコントロール -->
-            <section class="control-panel glass">
-                <h2>シミュレータ設定</h2>
-                
-                <div class="mode-selector">
-                    <label class="mode-card" for="mode-normal">
-                        <input type="radio" id="mode-normal" name="tray-mode" value="normal" checked>
-                        <div class="mode-content">
-                            <span class="icon">🗑️</span>
-                            <div class="mode-text">
-                                <h3>従来のお盆</h3>
-                                <p>滑りやすく、少しの揺れで味噌汁が波立ち、すぐにこぼれます。</p>
-                            </div>
-                        </div>
-                    </label>
-
-                    <label class="mode-card premium" for="mode-spillfree">
-                        <input type="radio" id="mode-spillfree" name="tray-mode" value="spillfree">
-                        <div class="mode-content">
-                            <span class="icon">✨</span>
-                            <div class="mode-text">
-                                <h3>SpillFree システム</h3>
-                                <p>ノンスリップ、重心スタビライザー、波打ち抑制お椀で絶対こぼしません。</p>
-                            </div>
-                        </div>
-                    </label>
+        <!-- メインコンテンツ -->
+        <main class="app-content">
+            <!-- 左側：コントロールパネル -->
+            <section class="control-panel">
+                <div class="panel-header">
+                    <h2>TECHNOLOGY SWITCHES</h2>
+                    <p>機能をON/OFFして挙動の違いを確認してください</p>
                 </div>
 
-                <div class="stats-card">
-                    <h3>ステータス監視</h3>
-                    <div class="stat-row">
-                        <span>お盆の濡れ度 (Pains):</span>
-                        <span id="stat-wetness" class="stat-val pain">0%</span>
+                <div class="switches-list">
+                    <!-- スイッチ 1 -->
+                    <div class="switch-card" data-tech="nonslip">
+                        <div class="switch-info">
+                            <span class="tech-num">01</span>
+                            <h3>ナノ吸引ノンスリップ層</h3>
+                            <p>滑り止め素材による器の横滑り防止</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="switch-nonslip" checked>
+                            <span class="slider"></span>
+                        </label>
                     </div>
-                    <div class="stat-row">
-                        <span>配膳の快適度 (Gains):</span>
-                        <span id="stat-comfort" class="stat-val gain">100%</span>
+
+                    <!-- スイッチ 2 -->
+                    <div class="switch-card" data-tech="balancer">
+                        <div class="switch-info">
+                            <span class="tech-num">02</span>
+                            <h3>低重心バランサー</h3>
+                            <p>お盆全体の傾きを自動吸収・水平維持</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="switch-balancer" checked>
+                            <span class="slider"></span>
+                        </label>
                     </div>
-                    <div class="stat-row">
-                        <span>こぼした回数:</span>
-                        <span id="stat-spills" class="stat-val">0 回</span>
+
+                    <!-- スイッチ 3 -->
+                    <div class="switch-card" data-tech="magnetic">
+                        <div class="switch-info">
+                            <span class="tech-num">03</span>
+                            <h3>磁力アシストホルダー</h3>
+                            <p>磁力による吸着で器の浮き上がりと転倒を防止</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="switch-magnetic" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- スイッチ 4 -->
+                    <div class="switch-card" data-tech="fins">
+                        <div class="switch-info">
+                            <span class="tech-num">04</span>
+                            <h3>波立ち抑制二重構造椀</h3>
+                            <p>器内部の特殊フィンが波の干渉を打ち消す</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="switch-fins" checked>
+                            <span class="slider"></span>
+                        </label>
                     </div>
                 </div>
 
-                <button id="btn-reset" class="btn">お盆を拭いてリセット</button>
+                <div class="action-area">
+                    <button id="btn-shake" class="btn-primary">お盆を揺らす（デモ走行）</button>
+                </div>
             </section>
 
-            <!-- 右カラム：物理シミュレータ本体 -->
-            <section class="simulator-area glass">
-                <div class="sim-header">
-                    <h2>配膳エリア</h2>
-                    <p class="instruction">マウスまたはドラッグでお盆を左右に揺らしてみてください</p>
-                </div>
-
-                <!-- ドラッグ・操作可能なキャンバスコンテナ -->
-                <div class="canvas-container" id="tray-handle">
-                    <canvas id="sim-canvas"></canvas>
-                    <div class="tray-guide-text">← ここをドラッグして左右に揺らす →</div>
-                </div>
-
-                <!-- リアルタイムフィードバック -->
-                <div class="feedback-panel">
-                    <div id="feedback-pain" class="feedback-card pain-alert">
-                        <h4>⚠️ 発生している Pains:</h4>
-                        <ul id="pain-list">
-                            <li>なし</li>
-                        </ul>
+            <!-- 中央：インタラクティブビジュアル -->
+            <section class="visualizer-container">
+                <div class="visualizer-screen">
+                    <div class="status-indicator" id="status-display">
+                        <span class="dot"></span> <span class="text">SYSTEM ACTIVE: SECURE</span>
                     </div>
-                    <div id="feedback-gain" class="feedback-card gain-alert">
-                        <h4>🎉 創出されている Gains:</h4>
-                        <ul id="gain-list">
-                            <li>綺麗なまま食事に入れる</li>
-                        </ul>
+
+                    <!-- お盆と器のグラフィックエリア -->
+                    <div class="stage" id="stage">
+                        <div class="gyro-base" id="gyro-base">
+                            <!-- 低重心バランサー（ジャイロ）のインジケータ -->
+                            <div class="balancer-ring" id="balancer-ring"></div>
+
+                            <!-- お盆本体 -->
+                            <div class="tray" id="tray">
+                                <!-- ノンスリップコーティング層 -->
+                                <div class="nonslip-layer" id="nonslip-layer"></div>
+                                
+                                <!-- 磁気ホルダー -->
+                                <div class="magnetic-holder" id="magnetic-holder"></div>
+
+                                <!-- 味噌汁椀 -->
+                                <div class="bowl" id="bowl">
+                                    <!-- 磁気ベース(器側) -->
+                                    <div class="bowl-magnet"></div>
+                                    <!-- 波立ち抑制フィン(器の内壁) -->
+                                    <div class="bowl-fins" id="bowl-fins"></div>
+                                    <!-- 味噌汁（液体） -->
+                                    <div class="soup" id="soup">
+                                        <div class="soup-surface" id="soup-surface"></div>
+                                        <div class="tofu tofu-1"></div>
+                                        <div class="tofu tofu-2"></div>
+                                        <div class="green-onion onion-1"></div>
+                                        <div class="green-onion onion-2"></div>
+                                    </div>
+                                    <!-- こぼれるエフェクト用液滴 -->
+                                    <div class="spill-droplets" id="spill-droplets"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- パラメータモニター -->
+                    <div class="monitor-panel">
+                        <div class="monitor-item">
+                            <span class="label">お盆の傾き (Tilt)</span>
+                            <span class="value" id="val-tilt">0°</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">器のズレ (Slip)</span>
+                            <span class="value" id="val-slip">0.0 mm</span>
+                        </div>
+                        <div class="monitor-item">
+                            <span class="label">液面の最大波高</span>
+                            <span class="value" id="val-wave">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 右側：ステータス ＆ テクノロジー詳細解説 -->
+            <section class="detail-panel">
+                <div class="card risk-card">
+                    <h2>SPILL RISK ASSESSMENT</h2>
+                    <div class="risk-meter-container">
+                        <svg class="risk-circle" viewBox="0 0 100 100">
+                            <circle class="bg" cx="50" cy="50" r="45"></circle>
+                            <circle class="fg" id="risk-progress" cx="50" cy="50" r="45"></circle>
+                        </svg>
+                        <div class="risk-value">
+                            <span class="number" id="risk-num">0%</span>
+                            <span class="label" id="risk-label">極めて安全</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card info-card">
+                    <h2 id="tech-title">システム概要</h2>
+                    <div class="tech-detail-content" id="tech-desc">
+                        トグルスイッチを操作して各モジュールをON/OFFしてください。無効化した機能に応じて、揺らした際のこぼれリスクがリアルタイムで変化し、お盆と器の挙動に影響します。
                     </div>
                 </div>
             </section>
         </main>
 
-        <footer>
-            <p>&copy; 2026 sakamaki.haruto. Created with Antigravity.</p>
+        <!-- フッター -->
+        <footer class="app-footer">
+            <p>第3回課題「VPC v1 から構想したプロダクトのプロトタイプ」 | 作成：sakamaki.haruto (Discord ID: sakamaki.haruto)</p>
         </footer>
     </div>
+
     <script src="app.js"></script>
 </body>
 </html>

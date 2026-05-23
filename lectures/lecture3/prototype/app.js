@@ -1,469 +1,283 @@
-// SpillFree Tray & Bowl - 配膳シミュレータ
-
-const canvas = document.getElementById('sim-canvas');
-const ctx = canvas.getContext('2d');
-const container = document.getElementById('tray-handle');
-
-// デバイスピクセル比に応じたキャンバスリサイズ
-function resizeCanvas() {
-    const rect = container.getBoundingClientRect();
-    canvas.width = rect.width * window.devicePixelRatio;
-    canvas.height = rect.height * window.devicePixelRatio;
-    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-}
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
-
-// --- シミュレーション状態の定義 ---
-let mode = 'normal'; // 'normal' or 'spillfree'
-let trayX = 0;       // お盆の中心X座標 (キャンバス座標)
-let prevTrayX = 0;
-let trayVx = 0;      // お盆の速度
-let trayAx = 0;      // お盆の加速度
-
-let isDragging = false;
-let startDragX = 0;
-let baseTrayX = 0;
-
-// 液体のシミュレーション (波のグリッド)
-const NUM_POINTS = 15;
-const liquidPoints = [];
-const bowlRadius = 60;
-const bowlHeight = 65;
-
-// お椀と箸の位置 (滑りシミュレーション用)
-let bowlOffset = 0; // お盆の中心からのズレ
-let chopsticksOffset = 0;
-
-// パーティクル (飛び散る味噌汁)
-const particles = [];
-
-// スコア & ステータス
-let spillsCount = 0;
-let wetness = 0; // 0 to 100
-let comfort = 100; // 0 to 100
-
-// 初期化
-function initLiquid() {
-    liquidPoints.length = 0;
-    for (let i = 0; i < NUM_POINTS; i++) {
-        liquidPoints.push({
-            x: -bowlRadius + (i * (bowlRadius * 2) / (NUM_POINTS - 1)),
-            y: 0, // 基本液面からの変位
-            vy: 0 // 垂直速度
-        });
-    }
-}
-initLiquid();
-
-// --- 各種パラメータ定義 ---
-const params = {
-    normal: {
-        damping: 0.97,      // 減衰 (高いほど波が消えにくい)
-        inertia: 0.15,      // 慣性の影響度
-        tension: 0.05,     // 液面復元力 (バネ定数)
-        slipRisk: 0.8,      // 滑りやすさ
-        absorb: false       // 波の吸収機能
+// ==========================================================================
+// Technology Database & Descriptions
+// ==========================================================================
+const techInfo = {
+    overview: {
+        title: "システム概要",
+        desc: "トグルスイッチを操作して各技術をON/OFFしてください。左下の「お盆を揺らす」ボタンでデモ走行を実行でき、技術の有無による物理挙動（器の滑り、味噌汁の波立ち、お盆の安定度）の変化とこぼれリスクを体験できます。"
     },
-    spillfree: {
-        damping: 0.80,      // 非常に高い減衰 (波がすぐに静まる)
-        inertia: 0.02,      // スタビライザーで慣性をほぼ無効化 (15%)
-        tension: 0.15,      // すぐにフラットに戻る力
-        slipRisk: 0,        // ノンスリップ
-        absorb: true        // 縁で波を吸収
+    nonslip: {
+        title: "01. ナノ吸引ノンスリップ層",
+        desc: "お盆の表面に微細な吸盤構造を持つ特殊ゴム層を配置。器との間の空気圧を利用して吸着し、摩擦係数を極限まで高めることで、歩行時の振動や最大45度の傾きでも器が横滑りするのを完全に防ぎます。"
+    },
+    balancer: {
+        title: "02. 低重心バランサー",
+        desc: "お盆の持ち手（外枠）とトレー部（内枠）を分離した2軸ジャイロ構造を採用。歩行時に手元が左右に傾いても、内枠が重力に従って常に水平を維持し、お盆を常にフラットな状態に保ちます。"
+    },
+    magnetic: {
+        title: "03. 磁力アシストホルダー",
+        desc: "お盆の配膳エリアと器の底面にネオジム磁石を内蔵。器を近づけるだけで中心部にピタッとガイド・吸着され、配膳中の不意の衝突や、急に立ち止まった際の強い慣性力でも器の浮き上がりや転倒を防止します。"
+    },
+    fins: {
+        title: "04. 波立ち抑制二重構造椀",
+        desc: "器の内壁に流体力学設計の「らせん状フィン」を施した二重構造。歩行のピッチによって発生する味噌汁の周期的な波立ちをフィンの壁面が受け止めて干渉させ、波のエネルギーを熱として分散・打ち消します。"
     }
 };
 
-// --- イベントリスナー ---
-const getEventX = (e) => e.touches ? e.touches[0].clientX : e.clientX;
+// ==========================================================================
+// DOM Elements
+// ==========================================================================
+const switches = {
+    nonslip: document.getElementById('switch-nonslip'),
+    balancer: document.getElementById('switch-balancer'),
+    magnetic: document.getElementById('switch-magnetic'),
+    fins: document.getElementById('switch-fins')
+};
 
-function startDrag(e) {
-    isDragging = true;
-    startDragX = getEventX(e);
-    baseTrayX = trayX;
-    e.preventDefault();
-}
+const switchCards = document.querySelectorAll('.switch-card');
+const techTitle = document.getElementById('tech-title');
+const techDesc = document.getElementById('tech-desc');
 
-function drag(e) {
-    if (!isDragging) return;
-    const currentX = getEventX(e);
-    const diff = currentX - startDragX;
+const btnShake = document.getElementById('btn-shake');
+const statusDisplay = document.getElementById('status-display');
+const stage = document.getElementById('stage');
+const gyroBase = document.getElementById('gyro-base');
+const tray = document.getElementById('tray');
+const bowl = document.getElementById('bowl');
+const soupSurface = document.getElementById('soup-surface');
+const bowlFins = document.getElementById('bowl-fins');
+const spillDroplets = document.getElementById('spill-droplets');
+
+// Monitor Values
+const valTilt = document.getElementById('val-tilt');
+const valSlip = document.getElementById('val-slip');
+const valWave = document.getElementById('val-wave');
+
+// Risk Meter Elements
+const riskProgress = document.getElementById('risk-progress');
+const riskNum = document.getElementById('risk-num');
+const riskLabel = document.getElementById('risk-label');
+
+// ==========================================================================
+// Application State
+// ==========================================================================
+let isShaking = false;
+let shakeInterval = null;
+let physicsInterval = null;
+let animationFrameId = null;
+
+// ==========================================================================
+// Functions
+// ==========================================================================
+
+// Calculate and Update Spill Risk
+function updateSpillRisk() {
+    let risk = 0;
     
-    // お盆の位置を更新 (キャンバスの表示幅にクランプ)
-    const displayWidth = canvas.width / window.devicePixelRatio;
-    trayX = baseTrayX + diff;
-    trayX = Math.max(120, Math.min(displayWidth - 120, trayX));
+    if (!switches.nonslip.checked) risk += 30;
+    if (!switches.balancer.checked) risk += 35;
+    if (!switches.magnetic.checked) risk += 15;
+    if (!switches.fins.checked) risk += 20;
+
+    // Update Circle Progress
+    const radius = 45;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (risk / 100) * circumference;
+    riskProgress.style.strokeDashoffset = offset;
+    
+    // Update Text & Color
+    riskNum.textContent = `${risk}%`;
+    
+    if (risk === 0) {
+        riskLabel.textContent = "極めて安全";
+        riskLabel.style.color = "var(--color-safe)";
+        riskProgress.style.stroke = "var(--color-safe)";
+        statusDisplay.className = "status-indicator";
+        statusDisplay.querySelector('.text').textContent = "SYSTEM ACTIVE: SECURE";
+    } else if (risk <= 35) {
+        riskLabel.textContent = "注意（少し揺れる）";
+        riskLabel.style.color = "var(--color-warn)";
+        riskProgress.style.stroke = "var(--color-warn)";
+        statusDisplay.className = "status-indicator";
+        statusDisplay.querySelector('.text').textContent = "SYSTEM ACTIVE: MINOR RISK";
+    } else if (risk <= 65) {
+        riskLabel.textContent = "警告（こぼれ注意）";
+        riskLabel.style.color = "var(--color-warn)";
+        riskProgress.style.stroke = "var(--color-warn)";
+        statusDisplay.className = "status-indicator danger";
+        statusDisplay.querySelector('.text').textContent = "SYSTEM WARN: HIGH WAVE";
+    } else {
+        riskLabel.textContent = "危険（こぼれ発生）";
+        riskLabel.style.color = "var(--color-danger)";
+        riskProgress.style.stroke = "var(--color-danger)";
+        statusDisplay.className = "status-indicator danger";
+        statusDisplay.querySelector('.text').textContent = "SYSTEM CRITICAL: SPILLING";
+    }
+
+    // Toggle Visual Classes based on switches
+    document.body.classList.toggle('nonslip-disabled', !switches.nonslip.checked);
+    document.body.classList.toggle('balancer-disabled', !switches.balancer.checked);
+    document.body.classList.toggle('balancer-active', switches.balancer.checked);
+    document.body.classList.toggle('magnetic-disabled', !switches.magnetic.checked);
+    document.body.classList.toggle('fins-disabled', !switches.fins.checked);
 }
 
-function endDrag() {
-    isDragging = false;
+// Generate Spill Particle Effect
+function triggerSpillEffect() {
+    const droplet = document.createElement('div');
+    droplet.classList.add('droplet');
+    
+    // Random side (left or right edge of the bowl)
+    const isLeft = Math.random() > 0.5;
+    droplet.style.left = isLeft ? '0px' : '74px';
+    droplet.style.top = '15px';
+    
+    spillDroplets.appendChild(droplet);
+    
+    // Remove after animation completes
+    setTimeout(() => {
+        droplet.remove();
+    }, 600);
 }
 
-container.addEventListener('mousedown', startDrag);
-window.addEventListener('mousemove', drag);
-window.addEventListener('mouseup', endDrag);
+// Simulated Physics Loop
+let time = 0;
+function runPhysicsSim() {
+    time += 0.08;
+    
+    let baseTilt = 0;
+    let actualTrayTilt = 0;
+    let bowlSlip = 0;
+    let waveAmplitude = 0;
+    
+    if (isShaking) {
+        // Base tray frame tilt (input disturbance)
+        baseTilt = Math.sin(time * 2.5) * 18; // Oscillates between -18 and 18 deg
+        
+        // 02. Low Gravity Balancer effect
+        if (switches.balancer.checked) {
+            // Absorbs 85% of tilt
+            actualTrayTilt = baseTilt * 0.15;
+        } else {
+            actualTrayTilt = baseTilt;
+        }
+        
+        // 04. Anti-wave Fins effect
+        const waveBase = Math.abs(Math.sin(time * 3)) * 60;
+        if (switches.fins.checked) {
+            waveAmplitude = waveBase * 0.2; // Diminished wave
+        } else {
+            waveAmplitude = waveBase * 1.2; // Full wild wave
+        }
 
-container.addEventListener('touchstart', startDrag, { passive: false });
-window.addEventListener('touchmove', drag, { passive: false });
-window.addEventListener('touchend', endDrag);
+        // 01. & 03. Friction and Magnetic Attraction Slippage calculation
+        let maxSlipPotential = Math.sin(time * 2.5) * 60; // Max lateral sliding
+        if (switches.nonslip.checked && switches.magnetic.checked) {
+            bowlSlip = 0; // Completely locked
+        } else if (switches.nonslip.checked && !switches.magnetic.checked) {
+            bowlSlip = Math.abs(actualTrayTilt) > 12 ? maxSlipPotential * 0.05 : 0; // Tiny wobble
+        } else if (!switches.nonslip.checked && switches.magnetic.checked) {
+            bowlSlip = maxSlipPotential * 0.15; // Elastic magnetic sliding
+        } else {
+            bowlSlip = maxSlipPotential * 0.9; // Slithers all the way
+        }
+        
+        // Trigger spill drops when wave amplitude exceeds 45% or slip is extreme
+        if (!switches.fins.checked && waveAmplitude > 40 && Math.random() > 0.6) {
+            triggerSpillEffect();
+        }
+        if (!switches.nonslip.checked && Math.abs(bowlSlip) > 30 && Math.random() > 0.7) {
+            triggerSpillEffect();
+        }
+    }
 
-// モード切り替え
-document.querySelectorAll('input[name="tray-mode"]').forEach(input => {
-    input.addEventListener('change', (e) => {
-        mode = e.target.value;
-        // モード変更時にお椀の位置などをリセット
-        bowlOffset = 0;
-        chopsticksOffset = 0;
+    // Apply visual rotations/offsets
+    gyroBase.style.transform = `rotate(${baseTilt}deg)`;
+    tray.style.transform = `rotate(${actualTrayTilt - baseTilt}deg)`; // Relative balance compensation
+    bowl.style.left = `calc(50% - 40px + ${bowlSlip}px)`;
+    
+    // Wave tilt animation
+    soupSurface.style.transform = `rotate(${-actualTrayTilt * 0.8 + (waveAmplitude * 0.3 * Math.cos(time * 3.5))}deg) translateY(${-waveAmplitude * 0.08}px)`;
+
+    // Update Monitors
+    valTilt.textContent = `${actualTrayTilt.toFixed(1)}°`;
+    valSlip.textContent = `${Math.abs(bowlSlip).toFixed(1)} mm`;
+    valWave.textContent = `${Math.min(waveAmplitude, 100).toFixed(0)}%`;
+
+    animationFrameId = requestAnimationFrame(runPhysicsSim);
+}
+
+// Toggle Demo Shake Mode
+function toggleShake() {
+    isShaking = !isShaking;
+    
+    if (isShaking) {
+        btnShake.textContent = "デモ走行を停止する";
+        btnShake.style.background = "linear-gradient(135deg, var(--color-danger), #b91c1c)";
+        btnShake.style.boxShadow = "0 4px 15px rgba(239, 68, 68, 0.4)";
+    } else {
+        btnShake.textContent = "お盆を揺らす（デモ走行）";
+        btnShake.style.background = "linear-gradient(135deg, var(--color-accent), #0284c7)";
+        btnShake.style.boxShadow = "0 4px 15px rgba(var(--color-accent-rgb), 0.3)";
+        
+        // Reset Visual position smoothly
+        setTimeout(() => {
+            if (!isShaking) {
+                gyroBase.style.transform = 'rotate(0deg)';
+                tray.style.transform = 'rotate(0deg)';
+                bowl.style.left = 'calc(50% - 40px)';
+                soupSurface.style.transform = 'rotate(0deg) translateY(0px)';
+                valTilt.textContent = "0.0°";
+                valSlip.textContent = "0.0 mm";
+                valWave.textContent = "0%";
+            }
+        }, 150);
+    }
+}
+
+// ==========================================================================
+// Event Listeners
+// ==========================================================================
+
+// Switch Info Panel on click/hover of cards
+switchCards.forEach(card => {
+    const tech = card.getAttribute('data-tech');
+    
+    card.addEventListener('click', (e) => {
+        // Prevent toggle triggering multiple times if label itself is clicked
+        if (e.target.tagName !== 'INPUT' && e.target.className !== 'slider') {
+            const checkbox = card.querySelector('input[type="checkbox"]');
+            checkbox.checked = !checkbox.checked;
+            updateSpillRisk();
+        }
+        
+        // Update Description Panel
+        techTitle.textContent = techInfo[tech].title;
+        techDesc.textContent = techInfo[tech].desc;
+    });
+
+    card.addEventListener('mouseenter', () => {
+        techTitle.textContent = techInfo[tech].title;
+        techDesc.textContent = techInfo[tech].desc;
     });
 });
 
-// リセットボタン
-document.getElementById('btn-reset').addEventListener('click', () => {
-    spillsCount = 0;
-    wetness = 0;
-    comfort = 100;
-    bowlOffset = 0;
-    chopsticksOffset = 0;
-    particles.length = 0;
-    initLiquid();
-    updateUI();
+// Restore system overview when mouse leaves switch panels
+document.querySelector('.switches-list').addEventListener('mouseleave', () => {
+    techTitle.textContent = techInfo.overview.title;
+    techDesc.textContent = techInfo.overview.desc;
 });
 
-// 飛沫パーティクル作成
-function createSpillParticle(x, y, vx, vy) {
-    particles.push({
-        x: x,
-        y: y,
-        vx: vx + (Math.random() - 0.5) * 2,
-        vy: vy - Math.random() * 3 - 1,
-        radius: Math.random() * 3 + 2,
-        life: 1.0,
-        decay: Math.random() * 0.05 + 0.02
-    });
-}
+// Switches Event Listeners
+Object.values(switches).forEach(sw => {
+    sw.addEventListener('change', updateSpillRisk);
+});
 
-// 物理演算 & 更新
-function updatePhysics() {
-    const currentParams = params[mode];
-    const displayWidth = canvas.width / window.devicePixelRatio;
-    
-    // 起動直後などにお盆を中心に初期配置する
-    if (trayX === 0) {
-        trayX = displayWidth / 2;
-        prevTrayX = trayX;
-    }
+// Shake button
+btnShake.addEventListener('click', toggleShake);
 
-    // 速度と加速度の計算
-    trayVx = trayX - prevTrayX;
-    trayAx = trayVx * 0.8; // 加速度係数
-    prevTrayX = trayX;
-
-    // 滑りシミュレーション (普通モードのみ)
-    if (currentParams.slipRisk > 0) {
-        // 加速度が一定を超えるとズレる
-        if (Math.abs(trayAx) > 3) {
-            bowlOffset += trayAx * 0.15 * currentParams.slipRisk;
-            chopsticksOffset += trayAx * 0.25 * currentParams.slipRisk;
-        }
-        // お盆の縁で跳ね返り/クランプ
-        bowlOffset = Math.max(-100, Math.min(100, bowlOffset));
-        chopsticksOffset = Math.max(-110, Math.min(110, chopsticksOffset));
-    } else {
-        // SpillFree時はスムーズに中央に戻る (ノンスリップ吸着)
-        bowlOffset *= 0.8;
-        chopsticksOffset *= 0.8;
-    }
-
-    // 液面の物理演算
-    const force = -trayAx * currentParams.inertia;
-    
-    // バネと波の伝播モデル
-    for (let i = 0; i < NUM_POINTS; i++) {
-        const pt = liquidPoints[i];
-        const targetY = 0;
-        
-        // 1. お盆の加速度による慣性力
-        pt.vy += force;
-        
-        // 2. 基本高さに戻ろうとするバネの力
-        const diff = pt.y - targetY;
-        pt.vy -= currentParams.tension * diff;
-        
-        // 3. 速度更新と減衰
-        pt.vy *= currentParams.damping;
-        pt.y += pt.vy;
-    }
-
-    // 隣接ポイント間での波の伝播
-    const spread = 0.25;
-    for (let iteration = 0; iteration < 4; iteration++) {
-        for (let i = 0; i < NUM_POINTS; i++) {
-            if (i > 0) {
-                const left = liquidPoints[i - 1];
-                const pt = liquidPoints[i];
-                const lDiff = spread * (pt.y - left.y);
-                left.vy += lDiff;
-                left.y += lDiff;
-            }
-            if (i < NUM_POINTS - 1) {
-                const right = liquidPoints[i + 1];
-                const pt = liquidPoints[i];
-                const rDiff = spread * (pt.y - right.y);
-                right.vy += rDiff;
-                right.y += rDiff;
-            }
-        }
-    }
-
-    // こぼれ判定と飛沫エフェクト
-    const displayHeight = canvas.height / window.devicePixelRatio;
-    const bowlY = displayHeight - 120;
-    const bowlBaseX = trayX + bowlOffset;
-
-    liquidPoints.forEach((pt, index) => {
-        // 液面の絶対X, Y
-        const absX = bowlBaseX + pt.x;
-        // お椀の深さは bowlHeight
-        const absY = bowlY - bowlHeight + pt.y;
-        
-        // 端の部分 (インデックス 0 と最後) がお椀のフチを超えたらこぼれる
-        if (index === 0 || index === NUM_POINTS - 1) {
-            const limit = -12; // こぼれる閾値
-            if (pt.y < limit) {
-                // こぼれた！
-                const overflow = Math.abs(pt.y - limit);
-                pt.y = limit;
-                pt.vy = 0;
-                
-                if (Math.random() < 0.3) {
-                    spillsCount++;
-                    wetness = Math.min(100, wetness + 1.5);
-                    
-                    // パーティクル生成 (飛び散る方向)
-                    const dir = index === 0 ? -1 : 1;
-                    createSpillParticle(absX, absY, trayVx + dir * 2, -2);
-                }
-            }
-        }
-    });
-
-    // パーティクル更新
-    for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vy += 0.2; // 重力
-        p.life -= p.decay;
-        if (p.life <= 0) {
-            particles.splice(i, 1);
-        }
-    }
-
-    // 快適度 (Gains/Pains) の計算
-    if (mode === 'normal') {
-        const slipScore = (Math.abs(bowlOffset) + Math.abs(chopsticksOffset)) / 2;
-        comfort = Math.max(0, 100 - (wetness * 1.5) - (slipScore * 0.8));
-    } else {
-        // SpillFree時はほぼ満点
-        comfort = 100;
-    }
-
-    updateUI();
-}
-
-// UI要素の更新
-function updateUI() {
-    document.getElementById('stat-wetness').innerText = `${Math.floor(wetness)}%`;
-    document.getElementById('stat-comfort').innerText = `${Math.floor(comfort)}%`;
-    document.getElementById('stat-spills').innerText = `${Math.floor(spillsCount)} 回`;
-
-    // リアルタイムフィードバックの書き換え
-    const painList = document.getElementById('pain-list');
-    const gainList = document.getElementById('gain-list');
-    
-    painList.innerHTML = '';
-    gainList.innerHTML = '';
-
-    if (mode === 'normal') {
-        // Pains
-        if (wetness > 0) {
-            painList.innerHTML += '<li>お盆が味噌汁で濡れてしまって不快</li>';
-            painList.innerHTML += '<li>お盆を拭く用のティッシュが必要</li>';
-        }
-        if (Math.abs(bowlOffset) > 10) {
-            painList.innerHTML += '<li>歩くと汁が波打ってこぼれてしまう</li>';
-        }
-        if (Math.abs(chopsticksOffset) > 20) {
-            painList.innerHTML += '<li>お盆に乗っているお箸なども濡れてしまう</li>';
-        }
-        if (painList.innerHTML === '') {
-            painList.innerHTML = '<li>なし (今はうまく運べています)</li>';
-        }
-
-        // Gains
-        gainList.innerHTML = '<li>(従来お盆では利得が得られにくいです)</li>';
-    } else {
-        // SpillFree
-        painList.innerHTML = '<li>なし</li>';
-
-        // Gains
-        gainList.innerHTML += '<li>片手でも安心して運べる</li>';
-        gainList.innerHTML += '<li>汁ものが揺れにくい</li>';
-        gainList.innerHTML += '<li>配膳が楽になる</li>';
-        gainList.innerHTML += '<li>誰にとっても安心して持ち運べる</li>';
-        gainList.innerHTML += '<li>綺麗なまま食事に入れる</li>';
-    }
-}
-
-// 描画ループ
-function draw() {
-    const displayWidth = canvas.width / window.devicePixelRatio;
-    const displayHeight = canvas.height / window.devicePixelRatio;
-    
-    // 背景クリア
-    ctx.clearRect(0, 0, displayWidth, displayHeight);
-
-    const bowlY = displayHeight - 120;
-    const trayY = displayHeight - 90;
-
-    // --- お盆 (Tray) の描画 ---
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = mode === 'spillfree' ? 'rgba(168, 85, 247, 0.4)' : 'rgba(0, 0, 0, 0.5)';
-    
-    // お盆本体
-    ctx.fillStyle = mode === 'spillfree' ? '#1e1b4b' : '#1e293b';
-    ctx.strokeStyle = mode === 'spillfree' ? '#a855f7' : '#475569';
-    ctx.lineWidth = 4;
-    
-    // 角丸長方形のお盆
-    ctx.beginPath();
-    ctx.roundRect(trayX - 160, trayY - 10, 320, 20, 6);
-    ctx.fill();
-    ctx.stroke();
-    
-    // シャドウリセット
-    ctx.shadowBlur = 0;
-
-    // お盆の濡れ具合 (Wetness) ビジュアル表現
-    if (wetness > 0) {
-        ctx.fillStyle = `rgba(180, 83, 9, ${Math.min(0.7, wetness / 100)})`; // 味噌汁色の汚れ
-        ctx.beginPath();
-        ctx.ellipse(trayX + bowlOffset, trayY - 2, 90 + wetness, 4, 0, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    // SpillFreeの吸着マーカー (ビジュアル効果)
-    if (mode === 'spillfree') {
-        ctx.strokeStyle = 'rgba(168, 85, 247, 0.3)';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.ellipse(trayX, trayY - 8, bowlRadius + 10, 5, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-    }
-
-    // --- お椀 (Bowl) の描画 ---
-    const currentBowlX = trayX + bowlOffset;
-
-    // 1. お椀の外側
-    ctx.fillStyle = '#7f1d1d'; // 赤漆塗り風
-    ctx.beginPath();
-    ctx.moveTo(currentBowlX - bowlRadius, bowlY - bowlHeight);
-    ctx.quadraticCurveTo(currentBowlX - bowlRadius, bowlY - 10, currentBowlX - 25, bowlY);
-    ctx.lineTo(currentBowlX + 25, bowlY);
-    ctx.quadraticCurveTo(currentBowlX + bowlRadius, bowlY - 10, currentBowlX + bowlRadius, bowlY - bowlHeight);
-    ctx.closePath();
-    ctx.fill();
-    
-    // 高台 (底の足部分)
-    ctx.fillStyle = '#450a0a';
-    ctx.fillRect(currentBowlX - 20, bowlY, 40, 8);
-
-    // 2. 味噌汁 (液体) の描画
-    const liquidBaseY = bowlY - bowlHeight + 20; // 通常の液面高さ
-    ctx.fillStyle = '#b45309'; // 味噌汁色
-    
-    ctx.beginPath();
-    ctx.moveTo(currentBowlX - bowlRadius + 4, bowlY - bowlHeight + 10);
-    
-    // 左端
-    ctx.lineTo(currentBowlX + liquidPoints[0].x, liquidBaseY + liquidPoints[0].y);
-    
-    // 波打つ液面のカーブ描画
-    for (let i = 1; i < NUM_POINTS; i++) {
-        const pt = liquidPoints[i];
-        ctx.lineTo(currentBowlX + pt.x, liquidBaseY + pt.y);
-    }
-    
-    // 右端からお椀の底を通るパス
-    ctx.lineTo(currentBowlX + bowlRadius - 4, bowlY - bowlHeight + 10);
-    ctx.quadraticCurveTo(currentBowlX + bowlRadius - 4, bowlY - 10, currentBowlX + 22, bowlY - 4);
-    ctx.lineTo(currentBowlX - 22, bowlY - 4);
-    ctx.quadraticCurveTo(currentBowlX - bowlRadius + 4, bowlY - 10, currentBowlX - bowlRadius + 4, bowlY - bowlHeight + 10);
-    ctx.closePath();
-    ctx.fill();
-
-    // 豆腐や具のイメージ（おまけ）
-    ctx.fillStyle = '#f8fafc'; // とうふ
-    ctx.fillRect(currentBowlX - 20 + liquidPoints[3].y*0.2, liquidBaseY + 15 + liquidPoints[3].y*0.8, 8, 8);
-    ctx.fillRect(currentBowlX + 15 + liquidPoints[9].y*0.2, liquidBaseY + 22 + liquidPoints[9].y*0.8, 8, 8);
-    ctx.fillStyle = '#15803d'; // ネギ
-    ctx.beginPath();
-    ctx.arc(currentBowlX + 5 + liquidPoints[6].y*0.2, liquidBaseY + 10 + liquidPoints[6].y*0.8, 3, 0, Math.PI * 2);
-    ctx.arc(currentBowlX - 10 + liquidPoints[4].y*0.2, liquidBaseY + 25 + liquidPoints[4].y*0.8, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    // お椀のフチ/内側の影
-    ctx.strokeStyle = '#450a0a';
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(currentBowlX - bowlRadius, bowlY - bowlHeight);
-    ctx.quadraticCurveTo(currentBowlX, bowlY - bowlHeight + 5, currentBowlX + bowlRadius, bowlY - bowlHeight);
-    ctx.stroke();
-
-    // SpillFreeの二重構造/ジャイロスタビライズ演出 (半透明フープ)
-    if (mode === 'spillfree') {
-        ctx.strokeStyle = 'rgba(168, 85, 247, 0.6)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(currentBowlX, bowlY - bowlHeight / 2, bowlRadius + 4, 0, Math.PI * 2);
-        ctx.stroke();
-    }
-
-    // --- お箸 (Chopsticks) の描画 ---
-    const chopsticksX = trayX + chopsticksOffset;
-    ctx.strokeStyle = '#d97706'; // 木の箸
-    ctx.lineWidth = 4;
-    ctx.lineCap = 'round';
-    
-    // 箸1
-    ctx.beginPath();
-    ctx.moveTo(chopsticksX - 110, trayY - 14);
-    ctx.lineTo(chopsticksX - 40, trayY - 18);
-    ctx.stroke();
-
-    // 箸2
-    ctx.beginPath();
-    ctx.moveTo(chopsticksX - 110, trayY - 18);
-    ctx.lineTo(chopsticksX - 40, trayY - 22);
-    ctx.stroke();
-
-    // --- 飛沫パーティクルの描画 ---
-    particles.forEach(p => {
-        ctx.fillStyle = `rgba(180, 83, 9, ${p.life})`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-        ctx.fill();
-    });
-}
-
-// ループ処理
-function loop() {
-    updatePhysics();
-    draw();
-    requestAnimationFrame(loop);
-}
-
-// ループ開始
-requestAnimationFrame(loop);
+// ==========================================================================
+// Initialization
+// ==========================================================================
+updateSpillRisk();
+runPhysicsSim();
